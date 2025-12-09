@@ -1,0 +1,107 @@
+"""
+Manual Testing Guide and Commands
+Copy and paste these commands to test the API
+"""
+
+# ============================================================
+# SETUP: Make sure server is running first
+# ============================================================
+# uvicorn app.main:app --reload
+
+
+# ============================================================
+# TEST 1: Check if API is running
+# ============================================================
+curl http://localhost:8000/health
+
+
+# ============================================================
+# TEST 2: Get Google OAuth URL
+# ============================================================
+curl http://localhost:8000/auth/google
+
+# Copy the google_auth_url from response and open in browser
+# You should be redirected to Google sign-in page
+
+
+# ============================================================
+# TEST 3: Initiate a Paystack Payment (50 NGN)
+# ============================================================
+curl -X POST http://localhost:8000/payments/paystack/initiate \
+  -H "Content-Type: application/json" \
+  -d "{\"amount\": 5000}"
+
+# Save the "reference" from response (e.g., txn_abc123)
+# Copy the "authorization_url" and open in browser
+
+
+# ============================================================
+# TEST 4: Check Transaction Status
+# ============================================================
+# Replace TXN_REFERENCE with actual reference from Test 3
+curl http://localhost:8000/payments/TXN_REFERENCE/status
+
+
+# ============================================================
+# TEST 5: Check Status with Refresh (fetch from Paystack)
+# ============================================================
+curl http://localhost:8000/payments/TXN_REFERENCE/status?refresh=true
+
+
+# ============================================================
+# TEST 6: Try Invalid Amount (should fail with 400/422)
+# ============================================================
+curl -X POST http://localhost:8000/payments/paystack/initiate \
+  -H "Content-Type: application/json" \
+  -d "{\"amount\": -1000}"
+
+
+# ============================================================
+# TEST 7: Check Non-existent Transaction (should return 404)
+# ============================================================
+curl http://localhost:8000/payments/fake_reference_123/status
+
+
+# ============================================================
+# PAYSTACK TEST CARD DETAILS
+# ============================================================
+# Use these when completing payment on Paystack checkout page:
+#
+# Card Number:  4084 0840 8408 4081
+# Expiry Date:  12/25 (any future date)
+# CVV:          408
+# PIN:          0000
+# OTP:          123456
+
+
+# ============================================================
+# CHECK DATABASE
+# ============================================================
+# Connect to PostgreSQL
+# psql -U postgres -d hng_stage_8
+
+# View all users
+# SELECT * FROM users;
+
+# View all transactions
+# SELECT * FROM transactions;
+
+# View pending transactions
+# SELECT * FROM transactions WHERE status = 'pending';
+
+# View successful transactions
+# SELECT * FROM transactions WHERE status = 'success';
+
+
+# ============================================================
+# PYTHON TEST SCRIPT
+# ============================================================
+# Run the automated test script:
+# python test_api.py
+
+
+# ============================================================
+# INTERACTIVE API DOCS
+# ============================================================
+# Open in browser: http://localhost:8000/docs
+# This gives you a nice interface to test all endpoints
