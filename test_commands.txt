@@ -1,107 +1,67 @@
-"""
-Manual Testing Guide and Commands
-Copy and paste these commands to test the API
-"""
-
-# ============================================================
-# SETUP: Make sure server is running first
-# ============================================================
-# uvicorn app.main:app --reload
-
-
-# ============================================================
-# TEST 1: Check if API is running
-# ============================================================
-curl http://localhost:8000/health
-
-
-# ============================================================
-# TEST 2: Get Google OAuth URL
-# ============================================================
-curl http://localhost:8000/auth/google
-
-# Copy the google_auth_url from response and open in browser
-# You should be redirected to Google sign-in page
-
-
-# ============================================================
-# TEST 3: Initiate a Paystack Payment (50 NGN)
-# ============================================================
-curl -X POST http://localhost:8000/payments/paystack/initiate \
-  -H "Content-Type: application/json" \
-  -d "{\"amount\": 5000}"
-
-# Save the "reference" from response (e.g., txn_abc123)
-# Copy the "authorization_url" and open in browser
-
-
-# ============================================================
-# TEST 4: Check Transaction Status
-# ============================================================
-# Replace TXN_REFERENCE with actual reference from Test 3
-curl http://localhost:8000/payments/TXN_REFERENCE/status
-
-
-# ============================================================
-# TEST 5: Check Status with Refresh (fetch from Paystack)
-# ============================================================
-curl http://localhost:8000/payments/TXN_REFERENCE/status?refresh=true
-
-
-# ============================================================
-# TEST 6: Try Invalid Amount (should fail with 400/422)
-# ============================================================
-curl -X POST http://localhost:8000/payments/paystack/initiate \
-  -H "Content-Type: application/json" \
-  -d "{\"amount\": -1000}"
-
-
-# ============================================================
-# TEST 7: Check Non-existent Transaction (should return 404)
-# ============================================================
-curl http://localhost:8000/payments/fake_reference_123/status
-
-
-# ============================================================
-# PAYSTACK TEST CARD DETAILS
-# ============================================================
-# Use these when completing payment on Paystack checkout page:
+# Manual API Test Commands using cURL
 #
-# Card Number:  4084 0840 8408 4081
-# Expiry Date:  12/25 (any future date)
-# CVV:          408
-# PIN:          0000
-# OTP:          123456
+# Note: Replace placeholders like <BEARER_TOKEN>, <API_KEY>, <REFERENCE>, etc.,
+# with actual values obtained during testing.
+
+# --- Authentication ---
+
+# 1. Get Google Auth URL
+curl -X GET "http://localhost:8000/auth/google"
+
+# After authenticating via browser and getting a token...
+
+# --- Wallet (Authenticated with JWT) ---
+
+# Get wallet balance
+curl -X GET "http://localhost:8000/wallet/balance" \
+     -H "Authorization: Bearer <BEARER_TOKEN>"
+
+# Get transaction history
+curl -X GET "http://localhost:8000/wallet/transactions" \
+     -H "Authorization: Bearer <BEARER_TOKEN>"
+
+# Initiate a deposit of 5000 kobo (50 NGN)
+curl -X POST "http://localhost:8000/wallet/deposit" \
+     -H "Authorization: Bearer <BEARER_TOKEN>" \
+     -H "Content-Type: application/json" \
+     -d '{"amount": 5000}'
+
+# Check deposit status (replace <REFERENCE> with one from the deposit response)
+curl -X GET "http://localhost:8000/wallet/deposit/<REFERENCE>/status" \
+     -H "Authorization: Bearer <BEARER_TOKEN>"
+
+# Transfer 1000 kobo (10 NGN) to another wallet (replace <WALLET_NUMBER>)
+curl -X POST "http://localhost:8000/wallet/transfer" \
+     -H "Authorization: Bearer <BEARER_TOKEN>" \
+     -H "Content-Type: application/json" \
+     -d '{"recipient_wallet_number": "<WALLET_NUMBER>", "amount": 1000}'
 
 
-# ============================================================
-# CHECK DATABASE
-# ============================================================
-# Connect to PostgreSQL
-# psql -U postgres -d hng_stage_8
+# --- API Key Management (Authenticated with JWT) ---
 
-# View all users
-# SELECT * FROM users;
+# Create a new API key
+curl -X POST "http://localhost:8000/keys/create" \
+     -H "Authorization: Bearer <BEARER_TOKEN>" \
+     -H "Content-Type: application/json" \
+     -d '{"name": "MyReadonlyKey", "permissions": ["read"], "expiry": "1M"}'
 
-# View all transactions
-# SELECT * FROM transactions;
+# List all API keys
+curl -X GET "http://localhost:8000/keys" \
+     -H "Authorization: Bearer <BEARER_TOKEN>"
 
-# View pending transactions
-# SELECT * FROM transactions WHERE status = 'pending';
-
-# View successful transactions
-# SELECT * FROM transactions WHERE status = 'success';
+# Revoke an API key (replace <KEY_ID>)
+curl -X DELETE "http://localhost:8000/keys/<KEY_ID>" \
+     -H "Authorization: Bearer <BEARER_TOKEN>"
 
 
-# ============================================================
-# PYTHON TEST SCRIPT
-# ============================================================
-# Run the automated test script:
-# python test_api.py
+# --- Wallet (Authenticated with API Key) ---
 
+# Get wallet balance using an API key with 'read' permission
+curl -X GET "http://localhost:8000/wallet/balance" \
+     -H "x-api-key: <API_KEY>"
 
-# ============================================================
-# INTERACTIVE API DOCS
-# ============================================================
-# Open in browser: http://localhost:8000/docs
-# This gives you a nice interface to test all endpoints
+# Initiate a deposit using an API key with 'deposit' permission
+curl -X POST "http://localhost:8000/wallet/deposit" \
+     -H "x-api-key: <API_KEY>" \
+     -H "Content-Type: application/json" \
+     -d '{"amount": 2500}'

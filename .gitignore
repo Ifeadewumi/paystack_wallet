@@ -30,3 +30,6 @@ instance/
 htmlcov/
 *.db
 *.sqlite
+
+.vercel
+.env*.local

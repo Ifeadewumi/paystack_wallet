@@ -9,7 +9,7 @@ from app.dependencies import oauth2_scheme # Added this import
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 
 from app.database import init_db
-from app.routers import auth, payments
+from app.routers import auth, wallet, keys
 
 
 @asynccontextmanager
@@ -24,7 +24,7 @@ app = FastAPI(
     title="HNG Stage 8 - Google OAuth & Paystack Integration",
     description="Backend API for Google Sign-In and Paystack Payment",
     version="1.0.0",
-    lifespan=lifespan,
+    # lifespan=lifespan, # Disabled for testing
     openapi_extra={
         "components": {
             "securitySchemes": {
@@ -50,7 +50,8 @@ app.add_middleware(
 
 # Include routers
 app.include_router(auth.router)
-app.include_router(payments.router)
+app.include_router(wallet.router)
+app.include_router(keys.router)
 
 
 @app.get("/")
@@ -60,7 +61,7 @@ async def root():
         "endpoints": {
             "docs": "/docs",
             "google_auth": "/auth/google",
-            "payment_initiate": "/payments/paystack/initiate"
+            "wallet_deposit": "/wallet/deposit"
         }
     }
 

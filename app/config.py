@@ -1,7 +1,12 @@
 from pydantic_settings import BaseSettings
 
-
 class Settings(BaseSettings):
+    # Core Application
+    secret_key: str
+    algorithm: str = "HS256"
+    access_token_expire_minutes: int = 30
+    api_key_prefix: str = "sk_live"
+
     # Database
     database_url: str
     
@@ -14,12 +19,8 @@ class Settings(BaseSettings):
     paystack_secret_key: str
     paystack_webhook_secret: str
     
-    # Application
-    app_secret_key: str
-    
     class Config:
         env_file = ".env"
         case_sensitive = False
-
 
 settings = Settings()

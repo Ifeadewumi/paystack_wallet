@@ -1,0 +1,9 @@
+[tool.pytest.ini_options]
+pythonpath = "."
+asyncio_mode = "auto"
+asyncio_event_loop_scope = "session"
+
+[tool.watchfiles]
+ignore_paths = [
+    ".venv",
+]
