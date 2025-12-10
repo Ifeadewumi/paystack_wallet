@@ -14,13 +14,14 @@ from app.schemas import (
     WalletDepositRequest,
     PaymentInitiateResponse,
     DepositStatusResponse,
+    DepositVerifyResponse,
     WalletBalanceResponse,
     WalletTransferRequest,
     TransactionHistoryResponse,
     WebhookResponse
 )
 from app.config import settings
-from app.auth_utils import get_current_user_with_permissions, check_permission
+from app.auth_utils import get_current_user_with_permissions, check_permission, oauth2_scheme, get_current_user
 from app.wallet_service import credit_wallet, transfer_funds
 
 router = APIRouter(prefix="/wallet", tags=["Wallet Operations"])
@@ -28,6 +29,29 @@ router = APIRouter(prefix="/wallet", tags=["Wallet Operations"])
 # Paystack API URLs
 PAYSTACK_INITIALIZE_URL = "https://api.paystack.co/transaction/initialize"
 PAYSTACK_VERIFY_URL = "https://api.paystack.co/transaction/verify"
+
+
+async def verify_paystack_transaction(reference: str) -> dict:
+    """
+    Call Paystack's transaction verify endpoint to get transaction status.
+    Returns the verification response from Paystack.
+    """
+    async with httpx.AsyncClient() as client:
+        response = await client.get(
+            f"{PAYSTACK_VERIFY_URL}/{reference}",
+            headers={
+                "Authorization": f"Bearer {settings.paystack_secret_key}",
+                "Content-Type": "application/json"
+            }
+        )
+        
+        if response.status_code != 200:
+            raise HTTPException(
+                status_code=status.HTTP_502_BAD_GATEWAY,
+                detail=f"Paystack verification failed: {response.text}"
+            )
+        
+        return response.json()
 
 
 @router.post("/deposit", response_model=PaymentInitiateResponse, status_code=status.HTTP_201_CREATED)
@@ -199,6 +223,55 @@ async def get_deposit_status(
     )
 
 
+@router.get("/deposit/{reference}/verify", response_model=DepositVerifyResponse)
+async def verify_deposit_transaction(
+    reference: str,
+    auth_data: Tuple[User, List[str]] = Depends(get_current_user_with_permissions),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Verify a wallet deposit transaction by calling Paystack's verify API.
+    Requires JWT or API Key with 'read' permission.
+    This endpoint is read-only and does not credit wallets.
+    """
+    current_user, permissions = auth_data
+    check_permission("read", permissions)
+
+    # First check if the transaction exists and belongs to the user
+    result = await db.execute(
+        select(Transaction).where(
+            Transaction.reference == reference,
+            Transaction.user_id == current_user.id,
+            Transaction.type == TransactionType.DEPOSIT
+        )
+    )
+    transaction = result.scalar_one_or_none()
+    
+    if not transaction:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Deposit transaction not found for this user and reference."
+        )
+    
+    # Call Paystack verify API
+    paystack_response = await verify_paystack_transaction(reference)
+    
+    # Extract Paystack status
+    paystack_status = "unknown"
+    if paystack_response.get("status") and paystack_response.get("data"):
+        paystack_data = paystack_response["data"]
+        paystack_status = paystack_data.get("status", "unknown")
+    
+    return DepositVerifyResponse(
+        reference=transaction.reference,
+        status=transaction.status,
+        amount=transaction.amount,
+        paid_at=transaction.paid_at,
+        paystack_status=paystack_status,
+        paystack_data=paystack_response.get("data", {})
+    )
+
+
 @router.get("/balance", response_model=WalletBalanceResponse)
 async def get_wallet_balance(
     auth_data: Tuple[User, List[str]] = Depends(get_current_user_with_permissions),
@@ -217,6 +290,9 @@ async def get_wallet_balance(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User does not have a wallet.")
     
     return WalletBalanceResponse(balance=wallet.balance)
+
+
+
 
 
 @router.post("/transfer", response_model=dict)
@@ -269,7 +345,7 @@ async def get_wallet_transactions(
 
     return [
         TransactionHistoryResponse(
-            id=t.id,
+            id=str(t.id),
             type=t.type,
             amount=t.amount,
             status=t.status,

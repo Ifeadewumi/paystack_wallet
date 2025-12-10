@@ -1,3 +1,2 @@
-from fastapi.security import OAuth2PasswordBearer
-
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/google/callback")
+# This file is kept for backward compatibility
+# Authentication dependencies are now in app/auth_utils.py

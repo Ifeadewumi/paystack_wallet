@@ -80,6 +80,14 @@ class DepositStatusResponse(BaseModel):
     amount: int
     paid_at: Optional[datetime] = None
 
+class DepositVerifyResponse(BaseModel):
+    reference: str
+    status: TransactionStatus
+    amount: int
+    paid_at: Optional[datetime] = None
+    paystack_status: str
+    paystack_data: dict
+
 class WebhookResponse(BaseModel):
     status: bool
 

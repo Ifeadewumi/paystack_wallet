@@ -2,8 +2,7 @@ from fastapi import FastAPI, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 import logging
-# Removed: from fastapi.security import OAuth2PasswordBearer
-from app.dependencies import oauth2_scheme # Added this import
+# Authentication dependencies are handled in auth_utils.py
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
@@ -19,24 +18,11 @@ async def lifespan(app: FastAPI):
     yield
     # Shutdown: cleanup if needed
 
-
 app = FastAPI(
-    title="HNG Stage 8 - Google OAuth & Paystack Integration",
-    description="Backend API for Google Sign-In and Paystack Payment",
+    title="HNG Paystack Wallet API",
+    description="A Backend Wallet Service with JWT Authentication and Paystack Integration",
     version="1.0.0",
     # lifespan=lifespan, # Disabled for testing
-    openapi_extra={
-        "components": {
-            "securitySchemes": {
-                "BearerAuth": {
-                    "type": "http",
-                    "scheme": "bearer",
-                    "bearerFormat": "JWT",
-                    "description": "Enter your JWT token in the format 'Bearer <token>'"
-                }
-            }
-        }
-    }
 )
 
 # CORS middleware (configure as needed)
@@ -57,7 +43,7 @@ app.include_router(keys.router)
 @app.get("/")
 async def root():
     return {
-        "message": "HNG Stage 8 API",
+        "message": "HNG Paystack Wallet API",
         "endpoints": {
             "docs": "/docs",
             "google_auth": "/auth/google",

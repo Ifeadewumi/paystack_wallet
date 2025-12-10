@@ -1,5 +1,5 @@
 from fastapi import Depends, HTTPException, status, Header
-from fastapi.security import OAuth2PasswordBearer
+from fastapi.security import HTTPBearer
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from jose import JWTError, jwt
@@ -11,7 +11,7 @@ from app.database import get_db
 from app.models import User, ApiKey, ApiKeyPermissions
 from app.config import settings
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/google")
+oauth2_scheme = HTTPBearer()
 
 CREDENTIALS_EXCEPTION = HTTPException(
     status_code=status.HTTP_401_UNAUTHORIZED,
@@ -31,7 +31,8 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
     encoded_jwt = jwt.encode(to_encode, settings.secret_key, algorithm=settings.algorithm)
     return encoded_jwt
 
-async def get_current_user(token: str = Depends(oauth2_scheme), db: AsyncSession = Depends(get_db)) -> User:
+async def get_current_user(credentials = Depends(oauth2_scheme), db: AsyncSession = Depends(get_db)) -> User:
+    token = credentials.credentials
     try:
         payload = jwt.decode(token, settings.secret_key, algorithms=[settings.algorithm])
         user_id: str = payload.get("sub")
@@ -54,15 +55,29 @@ async def get_user_from_api_key(api_key: str, db: AsyncSession = Depends(get_db)
     if not api_key.startswith(settings.api_key_prefix + "_"):
         raise CREDENTIALS_EXCEPTION
 
-    key_prefix = api_key.split('_')[1]
+    # Extract the random part after the prefix (sk_live_)
+    parts = api_key.split('_')
+    if len(parts) < 3:
+        raise CREDENTIALS_EXCEPTION
+    random_part = parts[2]  # The part after sk_live_
+    key_prefix = random_part[:8]
     
+    # Get all API keys with matching prefix (there might be multiple due to collisions)
     result = await db.execute(select(ApiKey).where(ApiKey.key_prefix == key_prefix))
-    db_api_key = result.scalar_one_or_none()
+    potential_keys = result.scalars().all()
 
-    if db_api_key is None:
+    if not potential_keys:
         raise CREDENTIALS_EXCEPTION
 
-    if not hashlib.sha256(api_key.encode()).hexdigest() == db_api_key.key_hash:
+    # Find the correct API key by checking the full hash
+    api_key_hash = hashlib.sha256(api_key.encode()).hexdigest()
+    db_api_key = None
+    for key in potential_keys:
+        if key.key_hash == api_key_hash:
+            db_api_key = key
+            break
+
+    if db_api_key is None:
         raise CREDENTIALS_EXCEPTION
 
     if not db_api_key.is_active:
@@ -81,16 +96,25 @@ async def get_user_from_api_key(api_key: str, db: AsyncSession = Depends(get_db)
 # --- Combined Auth Dependency ---
 
 async def get_current_user_with_permissions(
-    authorization: Optional[str] = Header(None),
-    x_api_key: Optional[str] = Header(None),
+    credentials = Depends(oauth2_scheme),
+    x_api_key: Optional[str] = Header(None, alias="X-API-Key"),
     db: AsyncSession = Depends(get_db)
 ) -> Tuple[User, List[str]]:
-    if authorization:
-        # JWT authentication
-        token_type, _, token = authorization.partition(' ')
-        if token_type.lower() != 'bearer' or not token:
+    # Try JWT authentication first (from HTTPBearer)
+    if credentials:
+        token = credentials.credentials
+        try:
+            payload = jwt.decode(token, settings.secret_key, algorithms=[settings.algorithm])
+            user_id: str = payload.get("sub")
+            if user_id is None:
+                raise CREDENTIALS_EXCEPTION
+        except JWTError:
             raise CREDENTIALS_EXCEPTION
-        user = await get_current_user(token, db)
+        
+        user = await db.get(User, user_id)
+        if user is None:
+            raise CREDENTIALS_EXCEPTION
+            
         # JWT users have all permissions
         all_permissions = [p.value for p in ApiKeyPermissions]
         return user, all_permissions

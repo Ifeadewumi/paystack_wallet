@@ -3,6 +3,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 from fastapi import HTTPException, status
 from datetime import datetime, timezone
+import uuid
 
 from app.models import Wallet, Transaction, TransactionStatus, TransactionType, User
 
@@ -71,13 +72,18 @@ async def transfer_funds(db: AsyncSession, sender_user_id: str, recipient_wallet
         recipient_wallet.balance += amount
 
         # 4. Record transactions for both parties
+        # Generate unique references using UUID to prevent collisions
+        # Each transaction gets its own unique reference
+        sender_reference = f"xfer_{uuid.uuid4().hex}"
+        recipient_reference = f"xfer_{uuid.uuid4().hex}"
+        
         sender_transaction = Transaction(
             wallet_id=sender_wallet.id,
             user_id=sender_wallet.user_id,
             type=TransactionType.TRANSFER,
             amount=-amount, # Negative for debit
             status=TransactionStatus.SUCCESS,
-            reference=f"xfer_{sender_wallet.id}_to_{recipient_wallet.id}",
+            reference=sender_reference,
             description=f"Transfer to wallet {recipient_wallet.wallet_number}",
             paid_at=datetime.now(timezone.utc)
         )
@@ -88,7 +94,7 @@ async def transfer_funds(db: AsyncSession, sender_user_id: str, recipient_wallet
             type=TransactionType.TRANSFER,
             amount=amount, # Positive for credit
             status=TransactionStatus.SUCCESS,
-            reference=f"xfer_{sender_wallet.id}_to_{recipient_wallet.id}",
+            reference=recipient_reference,
             description=f"Transfer from wallet {sender_wallet.wallet_number}",
             paid_at=datetime.now(timezone.utc)
         )
