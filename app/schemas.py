@@ -94,6 +94,10 @@ class WebhookResponse(BaseModel):
 class WalletBalanceResponse(BaseModel):
     balance: int # in kobo
 
+class WalletInfoResponse(BaseModel):
+    wallet_number: str
+    balance: int # in kobo
+
 class WalletTransferRequest(BaseModel):
     recipient_wallet_number: str = Field(..., description="The wallet number of the recipient.")
     amount: int = Field(..., gt=0, description="Amount to transfer in kobo.")

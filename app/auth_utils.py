@@ -6,6 +6,7 @@ from jose import JWTError, jwt
 from datetime import datetime, timedelta, timezone
 from typing import Optional, List, Tuple
 import hashlib
+import uuid
 
 from app.database import get_db
 from app.models import User, ApiKey, ApiKeyPermissions
@@ -41,7 +42,13 @@ async def get_current_user(credentials = Depends(oauth2_scheme), db: AsyncSessio
     except JWTError:
         raise CREDENTIALS_EXCEPTION
     
-    user = await db.get(User, user_id)
+    # Convert string UUID back to UUID object for database lookup
+    try:
+        user_uuid = uuid.UUID(user_id)
+    except ValueError:
+        raise CREDENTIALS_EXCEPTION
+    
+    user = await db.get(User, user_uuid)
     if user is None:
         raise CREDENTIALS_EXCEPTION
     return user
@@ -111,7 +118,13 @@ async def get_current_user_with_permissions(
         except JWTError:
             raise CREDENTIALS_EXCEPTION
         
-        user = await db.get(User, user_id)
+        # Convert string UUID back to UUID object for database lookup
+        try:
+            user_uuid = uuid.UUID(user_id)
+        except ValueError:
+            raise CREDENTIALS_EXCEPTION
+        
+        user = await db.get(User, user_uuid)
         if user is None:
             raise CREDENTIALS_EXCEPTION
             

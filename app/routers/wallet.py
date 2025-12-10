@@ -16,6 +16,7 @@ from app.schemas import (
     DepositStatusResponse,
     DepositVerifyResponse,
     WalletBalanceResponse,
+    WalletInfoResponse,
     WalletTransferRequest,
     TransactionHistoryResponse,
     WebhookResponse
@@ -290,6 +291,29 @@ async def get_wallet_balance(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User does not have a wallet.")
     
     return WalletBalanceResponse(balance=wallet.balance)
+
+
+@router.get("/info", response_model=WalletInfoResponse)
+async def get_wallet_info(
+    auth_data: Tuple[User, List[str]] = Depends(get_current_user_with_permissions),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Get the wallet information including wallet number and balance for the authenticated user.
+    Requires JWT or API Key with 'read' permission.
+    """
+    current_user, permissions = auth_data
+    check_permission("read", permissions)
+
+    result = await db.execute(select(Wallet).where(Wallet.user_id == current_user.id))
+    wallet = result.scalar_one_or_none()
+    if not wallet:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User does not have a wallet.")
+    
+    return WalletInfoResponse(
+        wallet_number=wallet.wallet_number,
+        balance=wallet.balance
+    )
 
 
 

@@ -65,7 +65,7 @@ class Transaction(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     wallet_id = Column(UUID(as_uuid=True), ForeignKey("wallets.id"), nullable=False)
     user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
-    type = Column(SQLEnum(TransactionType), nullable=False)
+    type = Column(SQLEnum(TransactionType, values_callable=lambda obj: [e.value for e in obj]), nullable=False)
     amount = Column(BigInteger, nullable=False)  # Amount in kobo
     status = Column(SQLEnum(TransactionStatus), default=TransactionStatus.PENDING, nullable=False)
     reference = Column(String, unique=True, index=True, nullable=False)

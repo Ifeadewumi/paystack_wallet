@@ -8,7 +8,7 @@ import logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 
 from app.database import init_db
-from app.routers import auth, wallet, keys
+from app.routers import auth, wallet, keys, payments
 
 
 @asynccontextmanager
@@ -38,6 +38,7 @@ app.add_middleware(
 app.include_router(auth.router)
 app.include_router(wallet.router)
 app.include_router(keys.router)
+app.include_router(payments.router)
 
 
 @app.get("/")
@@ -47,7 +48,9 @@ async def root():
         "endpoints": {
             "docs": "/docs",
             "google_auth": "/auth/google",
-            "wallet_deposit": "/wallet/deposit"
+            "wallet_deposit": "/wallet/deposit",
+            "wallet_info": "/wallet/info",
+            "wallet_balance": "/wallet/balance"
         }
     }
 
