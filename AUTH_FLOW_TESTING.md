@@ -76,7 +76,7 @@ This flow describes how to create and use an API key for service-to-service auth
     -   The response will contain your new API key. **Save this key immediately, as it will not be shown again.**
     ```json
     {
-      "api_key": "sk_live_aBcDeFgHiJkLmNoPqRsTuVwXyZ...",
+      "api_key": "sk_live_...",
       "expires_at": "2025-12-11T18:30:00.123Z"
     }
     ```
@@ -87,6 +87,6 @@ This flow describes how to create and use an API key for service-to-service auth
     -   Make the API call.
     ```bash
     curl -X GET "http://localhost:8000/wallet/balance" \
-         -H "x-api-key: sk_live_aBcDeFgHiJkLmNoPqRsTuVwXyZ..."
+         -H "x-api-key: sk_live_..."
     ```
     -   This request should succeed. If you try to access an endpoint the key does not have permission for (e.g., `POST /wallet/transfer` without the `transfer` permission), you will receive a `403 Forbidden` error.
