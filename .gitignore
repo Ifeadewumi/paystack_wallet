@@ -35,3 +35,5 @@ htmlcov/
 .vercel
 .env*.local
 AUTH_FLOW_TESTING.md 
+
+.kiro/

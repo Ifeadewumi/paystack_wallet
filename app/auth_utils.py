@@ -12,7 +12,7 @@ from app.database import get_db
 from app.models import User, ApiKey, ApiKeyPermissions
 from app.config import settings
 
-oauth2_scheme = HTTPBearer()
+oauth2_scheme = HTTPBearer(auto_error=False)
 
 CREDENTIALS_EXCEPTION = HTTPException(
     status_code=status.HTTP_401_UNAUTHORIZED,
@@ -33,6 +33,8 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
     return encoded_jwt
 
 async def get_current_user(credentials = Depends(oauth2_scheme), db: AsyncSession = Depends(get_db)) -> User:
+    if not credentials:
+        raise CREDENTIALS_EXCEPTION
     token = credentials.credentials
     try:
         payload = jwt.decode(token, settings.secret_key, algorithms=[settings.algorithm])
@@ -58,7 +60,7 @@ async def get_current_user(credentials = Depends(oauth2_scheme), db: AsyncSessio
 def hash_api_key(api_key: str) -> str:
     return hashlib.sha256(api_key.encode()).hexdigest()
 
-async def get_user_from_api_key(api_key: str, db: AsyncSession = Depends(get_db)) -> Tuple[User, List[str]]:
+async def get_user_from_api_key(api_key: str, db: AsyncSession) -> Tuple[User, List[str]]:
     if not api_key.startswith(settings.api_key_prefix + "_"):
         raise CREDENTIALS_EXCEPTION
 

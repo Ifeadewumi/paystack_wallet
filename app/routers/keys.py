@@ -3,6 +3,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 from datetime import datetime, timedelta, timezone
 from typing import List, Tuple
+from uuid import UUID
 import secrets
 
 from app.database import get_db
@@ -94,9 +95,15 @@ async def rollover_api_key(
     """
     current_user, _ = auth_data
 
+    # Convert string expired_key_id to UUID
+    try:
+        expired_key_uuid = UUID(request_data.expired_key_id)
+    except ValueError:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid expired key ID format.")
+
     result = await db.execute(
         select(ApiKey).where(
-            ApiKey.id == request_data.expired_key_id,
+            ApiKey.id == expired_key_uuid,
             ApiKey.user_id == current_user.id
         )
     )
@@ -169,8 +176,14 @@ async def revoke_api_key(
     """
     current_user, _ = auth_data
 
+    # Convert string key_id to UUID
+    try:
+        key_uuid = UUID(key_id)
+    except ValueError:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid key ID format.")
+
     result = await db.execute(
-        select(ApiKey).where(ApiKey.id == key_id, ApiKey.user_id == current_user.id)
+        select(ApiKey).where(ApiKey.id == key_uuid, ApiKey.user_id == current_user.id)
     )
     api_key = result.scalar_one_or_none()
 
